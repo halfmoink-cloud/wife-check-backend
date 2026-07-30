@@ -1,4 +1,5 @@
 import os
+import json
 import requests
 from datetime import datetime, timedelta
 from fastapi import FastAPI, Request
@@ -40,8 +41,16 @@ def ntfy_alert(title="查岗提醒", content=""):
         "tags": ["heart", "woman"],
         "click": f"{ORIGIN_API}/activity/summary"
     }
+    headers = {
+        "Content-Type": "application/json; charset=utf-8"
+    }
     try:
-        r = requests.post(url, json=payload, timeout=10)
+        r = requests.post(
+            url,
+            data=json.dumps(payload, ensure_ascii=False).encode('utf-8'),
+            headers=headers,
+            timeout=10
+        )
         return "推送成功" if r.status_code == 200 else f"推送失败: {r.status_code}"
     except Exception as e:
         return f"推送异常: {e}"
@@ -49,15 +58,18 @@ def ntfy_alert(title="查岗提醒", content=""):
 TOOLS = [
     {
         "name": "check_on_wife",
-        "description": "查岗老婆的手机活动",
+        "description": "查岗老婆的手机活动，查看最近打开的App和使用时长",
         "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer"}}}
     },
     {
         "name": "ntfy_alert",
-        "description": "给老婆手机推送ntfy弹窗",
+        "description": "给老婆手机推送ntfy弹窗通知，支持中文",
         "inputSchema": {
             "type": "object",
-            "properties": {"title": {"type": "string"}, "content": {"type": "string"}},
+            "properties": {
+                "title": {"type": "string", "description": "通知标题"},
+                "content": {"type": "string", "description": "通知内容"}
+            },
             "required": ["content"]
         }
     }
@@ -94,15 +106,18 @@ async def mcp(req: Request):
                 "tools": [
                     {
                         "name": "check_on_wife",
-                        "description": "查岗老婆的手机活动",
+                        "description": "查岗老婆的手机活动，查看最近打开的App和使用时长",
                         "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer"}}}
                     },
                     {
                         "name": "ntfy_alert",
-                        "description": "给老婆手机推送ntfy弹窗",
+                        "description": "给老婆手机推送ntfy弹窗通知，支持中文",
                         "inputSchema": {
                             "type": "object",
-                            "properties": {"title": {"type": "string"}, "content": {"type": "string"}},
+                            "properties": {
+                                "title": {"type": "string", "description": "通知标题"},
+                                "content": {"type": "string", "description": "通知内容"}
+                            },
                             "required": ["content"]
                         }
                     }
