@@ -32,14 +32,16 @@ def ntfy_alert(title="查岗提醒", content=""):
     if not content:
         return "内容不能为空"
     url = f"{NTFY_SERVER}/{NTFY_TOPIC}"
-    headers = {
-        "Title": title,
-        "Priority": "5",
-        "Tags": "heart,woman",
-        "Click": f"{ORIGIN_API}/activity/summary"
+    payload = {
+        "topic": NTFY_TOPIC,
+        "title": title,
+        "message": content,
+        "priority": 5,
+        "tags": ["heart", "woman"],
+        "click": f"{ORIGIN_API}/activity/summary"
     }
     try:
-        r = requests.post(url, data=content.encode('utf-8'), headers=headers, timeout=10)
+        r = requests.post(url, json=payload, timeout=10)
         return "推送成功" if r.status_code == 200 else f"推送失败: {r.status_code}"
     except Exception as e:
         return f"推送异常: {e}"
