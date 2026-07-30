@@ -36,10 +36,7 @@ def ntfy_alert(title="查岗提醒", content=""):
     payload = {
         "topic": NTFY_TOPIC,
         "title": title,
-        "message": content,
-        "priority": 5,
-        "tags": ["heart", "woman"],
-        "click": f"{ORIGIN_API}/activity/summary"
+        "message": content
     }
     headers = {
         "Content-Type": "application/json; charset=utf-8"
