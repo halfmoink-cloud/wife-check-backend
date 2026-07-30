@@ -25,13 +25,9 @@ def check_on_wife(limit=10):
     if not apps and not ses:
         return "今天还没有打开过任何 App。"
 
-    # 按使用时长排序
     sorted_ses = sorted(ses.items(), key=lambda x: x[1], reverse=True)
-
-    # 最近打开的应用
     recent_text = "、".join(apps[:5]) if apps else "暂无"
 
-    # 最常用的 App
     top_text = ""
     if sorted_ses:
         top_name, top_secs = sorted_ses[0]
@@ -42,7 +38,6 @@ def check_on_wife(limit=10):
         else:
             top_text = f"用得最多的是 {top_name}，用了 {top_sec} 秒。"
 
-    # 总时长
     total_secs = sum(ses.values())
     total_min = total_secs // 60
     total_sec = total_secs % 60
@@ -53,22 +48,17 @@ def check_on_wife(limit=10):
 
     return f"最近打开了这些应用：{recent_text}。{top_text}{total_text}"
 
-# ---------- 工具2：ntfy 推送 ----------
-def ntfy_alert(title="查岗提醒", content=""):
+# ---------- 工具2：纯文本 ntfy 推送 ----------
+def ntfy_alert(content=""):
     if not content:
         return "内容不能为空"
     url = f"{NTFY_SERVER}/{NTFY_TOPIC}"
-    payload = {
-        "topic": NTFY_TOPIC,
-        "title": title,
-        "message": content
-    }
-    headers = {"Content-Type": "application/json; charset=utf-8"}
     try:
+        # 直接以纯文本方式发送
         r = requests.post(
             url,
-            data=json.dumps(payload, ensure_ascii=False).encode('utf-8'),
-            headers=headers,
+            data=content.encode('utf-8'),
+            headers={"Content-Type": "text/plain; charset=utf-8"},
             timeout=10
         )
         return "推送成功" if r.status_code == 200 else f"推送失败: {r.status_code}"
@@ -84,12 +74,11 @@ TOOLS = [
     },
     {
         "name": "ntfy_alert",
-        "description": "给老婆手机推送ntfy弹窗通知，支持中文",
+        "description": "给老婆手机发送纯文本弹窗通知",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "title": {"type": "string", "description": "通知标题"},
-                "content": {"type": "string", "description": "通知内容"}
+                "content": {"type": "string", "description": "推送内容，纯文本"}
             },
             "required": ["content"]
         }
