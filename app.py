@@ -48,13 +48,15 @@ def check_on_wife(limit=10):
 
     return f"最近打开了这些应用：{recent_text}。{top_text}{total_text}"
 
-# ---------- 工具2：纯文本 ntfy 推送 ----------
-def ntfy_alert(content=""):
+# ---------- 工具2：纯文本 ntfy 推送（兼容 title） ----------
+def ntfy_alert(content="", title=""):
     if not content:
         return "内容不能为空"
+    # 如果有标题，拼到内容前面
+    if title:
+        content = f"{title}\n{content}"
     url = f"{NTFY_SERVER}/{NTFY_TOPIC}"
     try:
-        # 直接以纯文本方式发送
         r = requests.post(
             url,
             data=content.encode('utf-8'),
@@ -74,11 +76,12 @@ TOOLS = [
     },
     {
         "name": "ntfy_alert",
-        "description": "给老婆手机发送纯文本弹窗通知",
+        "description": "给老婆手机发送纯文本弹窗通知，支持标题（可选）",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "content": {"type": "string", "description": "推送内容，纯文本"}
+                "content": {"type": "string", "description": "推送内容，必填"},
+                "title": {"type": "string", "description": "推送标题，可选"}
             },
             "required": ["content"]
         }
