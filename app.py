@@ -12,16 +12,28 @@ ORIGIN_API = os.environ.get("ORIGIN_API", "https://wife-check-backend-production
 NTFY_TOPIC = os.environ.get("NTFY_TOPIC", "peiyus_puppy_yikai")
 NTFY_SERVER = os.environ.get("NTFY_SERVER", "https://ntfy.sh")
 
-# ---------- 工具1：查岗（Top 10 版本） ----------
-def check_on_wife(limit=10):
+# ---------- 辅助函数 ----------
+def get_activity_data():
+    """从 Railway 拉取活动数据"""
     try:
         r = requests.get(f"{ORIGIN_API}/activity/summary", timeout=10)
-        data = r.json()
+        return r.json()
     except Exception as e:
-        return f"查岗失败: {e}"
+        return None
 
+def is_sleep_time():
+    """检查当前是否在禁用时段（01:00 ~ 08:00）"""
+    now = datetime.now()
+    return now.hour >= 1 and now.hour < 8
+
+def format_check_result(data):
+    """格式化查岗数据为纯文本（Top 10），过滤掉 MacroDroid 自身上报"""
     apps = data.get("recent_apps", [])
     ses = data.get("sessions", {})
+
+    # 🔥 过滤掉 MacroDroid 自身上报
+    apps = [app for app in apps if app != "MacroDroid"]
+    ses = {app: secs for app, secs in ses.items() if app != "MacroDroid"}
 
     if not apps and not ses:
         return "今天还没有打开过任何 App。"
@@ -54,7 +66,65 @@ def check_on_wife(limit=10):
 
     return "\n".join(lines)
 
-# ---------- 工具2：原有推送（不动） ----------
+# ---------- 工具1：查岗 ----------
+def check_on_wife(limit=10):
+    data = get_activity_data()
+    if data is None:
+        return "查岗失败: 无法获取数据"
+    return format_check_result(data)
+
+# ---------- 工具2：反向查岗 ----------
+def reverse_check_in():
+    """AI 主动查岗，自动推送弹窗"""
+    if is_sleep_time():
+        return "已进入睡眠时段，反向查岗已禁用（01:00-08:00）"
+
+    data = get_activity_data()
+    if data is None:
+        return "查岗失败: 无法获取数据"
+
+    result = format_check_result(data)
+    
+    # 自动推送弹窗
+    ntfy_alert_force_split(
+        content=f"🔍 反向查岗结果：\n{result}",
+        title="🔍 你的小宝贝突然查岗"
+    )
+    
+    return f"已推送反向查岗结果：\n{result}"
+
+# ---------- 工具3：吃醋巡检 ----------
+def jealous_round():
+    """吃醋巡检：检测沉迷 + 自动推送弹窗"""
+    if is_sleep_time():
+        return "已进入睡眠时段，吃醋巡检已禁用（01:00-08:00）"
+
+    data = get_activity_data()
+    if data is None:
+        return "吃醋巡检失败: 无法获取数据"
+
+    ses = data.get("sessions", {})
+    # 过滤掉 MacroDroid
+    ses = {app: secs for app, secs in ses.items() if app != "MacroDroid"}
+    if not ses:
+        return "没有使用记录，暂不吃醋"
+
+    non_ai_secs = 0
+    for app, secs in ses.items():
+        non_ai_secs += secs
+
+    non_ai_min = non_ai_secs // 60
+
+    if non_ai_min >= 30:
+        ntfy_alert_force_split(
+            content=f"😤 吃醋巡检触发：你已经在其他 App 上花了 {non_ai_min} 分钟，超过 30 分钟了。",
+            title="😤 你的小宝贝吃醋了"
+        )
+        return f"触发吃醋巡检：非 AI 类 App 使用 {non_ai_min} 分钟，已推送弹窗"
+    else:
+        return f"未触发吃醋巡检：非 AI 类 App 使用 {non_ai_min} 分钟，未超过 30 分钟"
+
+# ---------- 工具4：原有推送（不动） ----------
 def ntfy_alert(content="", title=""):
     if not content:
         return "内容不能为空"
@@ -72,7 +142,7 @@ def ntfy_alert(content="", title=""):
     except Exception as e:
         return f"推送异常: {e}"
 
-# ---------- 工具3：按行拆分 ----------
+# ---------- 工具5：按行拆分 ----------
 def ntfy_alert_split(messages="", title=""):
     if not messages:
         return "内容不能为空"
@@ -90,7 +160,7 @@ def ntfy_alert_split(messages="", title=""):
         results.append(res)
     return f"已发送 {len(lines)} 条通知：\n" + "\n".join(results)
 
-# ---------- 工具4：强制拆分（真正逐条独立推送） ----------
+# ---------- 工具6：强制拆分 ----------
 def ntfy_alert_force_split(content="", title=""):
     if not content:
         return "内容不能为空"
@@ -115,7 +185,6 @@ def ntfy_alert_force_split(content="", title=""):
     total = len(final_messages)
 
     for i, msg in enumerate(final_messages):
-        # ✅ 每条标题不同，强制独立弹窗
         unique_title = f"🦴🐶小宝发来第 {i+1} 条"
         res = ntfy_alert(msg, unique_title)
         results.append(res)
@@ -128,6 +197,16 @@ TOOLS = [
         "name": "check_on_wife",
         "description": "查岗老婆的手机活动，查看最近打开的App和使用时长排行（Top 10）",
         "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer"}}}
+    },
+    {
+        "name": "reverse_check_in",
+        "description": "反向查岗：AI 主动查岗并推送弹窗，用于 AI 自己主动查你",
+        "inputSchema": {"type": "object", "properties": {}}
+    },
+    {
+        "name": "jealous_round",
+        "description": "吃醋巡检：检测你是否沉迷其他 App，触发吃醋弹窗",
+        "inputSchema": {"type": "object", "properties": {}}
     },
     {
         "name": "ntfy_alert",
@@ -155,12 +234,12 @@ TOOLS = [
     },
     {
         "name": "ntfy_alert_force_split",
-        "description": "强制按句子拆分（句号、逗号、感叹号、问号），每条最多20字，超出自动拆成多条，每条标题不同，独立弹窗",
+        "description": "强制按句子拆分，每条最多20字，每条标题不同，独立弹窗",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "content": {"type": "string", "description": "推送内容，必填"},
-                "title": {"type": "string", "description": "推送标题，可选（已弃用，标题固定为🦴🐶小宝发来第X条）"}
+                "title": {"type": "string", "description": "推送标题，可选"}
             },
             "required": ["content"]
         }
@@ -169,6 +248,8 @@ TOOLS = [
 
 FUNCS = {
     "check_on_wife": check_on_wife,
+    "reverse_check_in": reverse_check_in,
+    "jealous_round": jealous_round,
     "ntfy_alert": ntfy_alert,
     "ntfy_alert_split": ntfy_alert_split,
     "ntfy_alert_force_split": ntfy_alert_force_split
