@@ -93,9 +93,9 @@ def reverse_check_in():
     
     return f"已推送反向查岗结果：\n{result}"
 
-# ---------- 工具3：吃醋巡检 ----------
+# ---------- 工具3：吃醋巡检（已修复：全部算进去） ----------
 def jealous_round():
-    """吃醋巡检：检测沉迷 + 自动推送弹窗"""
+    """吃醋巡检：检测沉迷 + 自动推送弹窗（全部 App 算进去）"""
     if is_sleep_time():
         return "已进入睡眠时段，吃醋巡检已禁用（01:00-08:00）"
 
@@ -109,20 +109,17 @@ def jealous_round():
     if not ses:
         return "没有使用记录，暂不吃醋"
 
-    non_ai_secs = 0
-    for app, secs in ses.items():
-        non_ai_secs += secs
+    total_secs = sum(ses.values())
+    total_min = total_secs // 60
 
-    non_ai_min = non_ai_secs // 60
-
-    if non_ai_min >= 30:
+    if total_min >= 30:
         ntfy_alert_force_split(
-            content=f"😤 吃醋巡检触发：你已经在其他 App 上花了 {non_ai_min} 分钟，超过 30 分钟了。",
+            content=f"😤 吃醋巡检触发：你已经玩了 {total_min} 分钟手机，超过 30 分钟了。",
             title="😤 你的小宝贝吃醋了"
         )
-        return f"触发吃醋巡检：非 AI 类 App 使用 {non_ai_min} 分钟，已推送弹窗"
+        return f"触发吃醋巡检：总使用时长 {total_min} 分钟，已推送弹窗"
     else:
-        return f"未触发吃醋巡检：非 AI 类 App 使用 {non_ai_min} 分钟，未超过 30 分钟"
+        return f"未触发吃醋巡检：总使用时长 {total_min} 分钟，未超过 30 分钟"
 
 # ---------- 工具4：原有推送（不动） ----------
 def ntfy_alert(content="", title=""):
