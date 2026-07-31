@@ -48,11 +48,10 @@ def check_on_wife(limit=10):
 
     return f"最近打开了这些应用：{recent_text}。{top_text}{total_text}"
 
-# ---------- 工具2：纯文本 ntfy 推送（兼容 title） ----------
+# ---------- 工具2：纯文本 ntfy 推送（原有，不动） ----------
 def ntfy_alert(content="", title=""):
     if not content:
         return "内容不能为空"
-    # 如果有标题，拼到内容前面
     if title:
         content = f"{title}\n{content}"
     url = f"{NTFY_SERVER}/{NTFY_TOPIC}"
@@ -66,6 +65,34 @@ def ntfy_alert(content="", title=""):
         return "推送成功" if r.status_code == 200 else f"推送失败: {r.status_code}"
     except Exception as e:
         return f"推送异常: {e}"
+
+# ---------- 工具3：拆分推送（新增，保险） ----------
+def ntfy_alert_split(messages="", title=""):
+    """
+    按行拆分多条消息，逐条推送
+    messages: 多行文本，每行一条
+    """
+    if not messages:
+        return "内容不能为空"
+
+    lines = [line.strip() for line in messages.split("\n") if line.strip()]
+    if not lines:
+        return "没有有效内容"
+
+    # 如果只有一条，直接用旧工具
+    if len(lines) == 1:
+        return ntfy_alert(lines[0], title)
+
+    # 多条：逐条发送，第一条带标题，后续不带
+    results = []
+    for i, line in enumerate(lines):
+        if i == 0:
+            res = ntfy_alert(line, title if title else "查岗提醒")
+        else:
+            res = ntfy_alert(line, "")
+        results.append(res)
+    
+    return f"已发送 {len(lines)} 条通知：\n" + "\n".join(results)
 
 # ---------- MCP 工具注册 ----------
 TOOLS = [
@@ -85,10 +112,26 @@ TOOLS = [
             },
             "required": ["content"]
         }
+    },
+    {
+        "name": "ntfy_alert_split",
+        "description": "按行拆分多条消息，逐条推送，每条一条通知，适合一次性发多条内容",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "messages": {"type": "string", "description": "多行文本，每行一条消息"},
+                "title": {"type": "string", "description": "推送标题，可选，仅第一条生效"}
+            },
+            "required": ["messages"]
+        }
     }
 ]
 
-FUNCS = {"check_on_wife": check_on_wife, "ntfy_alert": ntfy_alert}
+FUNCS = {
+    "check_on_wife": check_on_wife,
+    "ntfy_alert": ntfy_alert,
+    "ntfy_alert_split": ntfy_alert_split
+}
 
 # ---------- FastAPI 服务 ----------
 app = FastAPI()
