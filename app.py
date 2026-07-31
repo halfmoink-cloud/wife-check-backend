@@ -12,7 +12,7 @@ ORIGIN_API = os.environ.get("ORIGIN_API", "https://wife-check-backend-production
 NTFY_TOPIC = os.environ.get("NTFY_TOPIC", "peiyus_puppy_yikai")
 NTFY_SERVER = os.environ.get("NTFY_SERVER", "https://ntfy.sh")
 
-# ---------- 工具1：查岗 ----------
+# ---------- 工具1：查岗（已修改为输出 Top 5） ----------
 def check_on_wife(limit=10):
     try:
         r = requests.get(f"{ORIGIN_API}/activity/summary", timeout=10)
@@ -26,28 +26,31 @@ def check_on_wife(limit=10):
     if not apps and not ses:
         return "今天还没有打开过任何 App。"
 
+    # 🔥 重点：直接输出 sessions 里的 Top 5
     sorted_ses = sorted(ses.items(), key=lambda x: x[1], reverse=True)
-    recent_text = "、".join(apps[:5]) if apps else "暂无"
-
-    top_text = ""
+    
+    lines = []
+    lines.append("📱 最近打开的应用：" + "、".join(apps[:5]) if apps else "暂无")
+    
     if sorted_ses:
-        top_name, top_secs = sorted_ses[0]
-        top_min = top_secs // 60
-        top_sec = top_secs % 60
-        if top_min > 0:
-            top_text = f"用得最多的是 {top_name}，用了 {top_min} 分 {top_sec} 秒。"
-        else:
-            top_text = f"用得最多的是 {top_name}，用了 {top_sec} 秒。"
-
+        lines.append("\n⏱️ 使用时长排行（Top 5）：")
+        for app, secs in sorted_ses[:5]:
+            minutes = secs // 60
+            seconds = secs % 60
+            if minutes > 0:
+                lines.append(f"  {app}：{minutes} 分 {seconds} 秒")
+            else:
+                lines.append(f"  {app}：{seconds} 秒")
+    
     total_secs = sum(ses.values())
     total_min = total_secs // 60
     total_sec = total_secs % 60
     if total_min > 0:
-        total_text = f"今天总共用了 {total_min} 分 {total_sec} 秒。"
+        lines.append(f"\n📊 今日累计：{total_min} 分 {total_sec} 秒")
     else:
-        total_text = f"今天总共用了 {total_sec} 秒。"
+        lines.append(f"\n📊 今日累计：{total_sec} 秒")
 
-    return f"最近打开了这些应用：{recent_text}。{top_text}{total_text}"
+    return "\n".join(lines)
 
 # ---------- 工具2：原有推送（不动） ----------
 def ntfy_alert(content="", title=""):
@@ -121,7 +124,7 @@ def ntfy_alert_force_split(content="", title=""):
 TOOLS = [
     {
         "name": "check_on_wife",
-        "description": "查岗老婆的手机活动，查看最近打开的App和使用时长",
+        "description": "查岗老婆的手机活动，查看最近打开的App和使用时长排行（Top 5）",
         "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer"}}}
     },
     {
