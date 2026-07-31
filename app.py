@@ -1,5 +1,6 @@
 import os
 import json
+import re
 import requests
 from datetime import datetime, timedelta
 from fastapi import FastAPI, Request
@@ -48,7 +49,7 @@ def check_on_wife(limit=10):
 
     return f"最近打开了这些应用：{recent_text}。{top_text}{total_text}"
 
-# ---------- 工具2：纯文本 ntfy 推送（原有，不动） ----------
+# ---------- 工具2：原有推送（不动） ----------
 def ntfy_alert(content="", title=""):
     if not content:
         return "内容不能为空"
@@ -66,24 +67,15 @@ def ntfy_alert(content="", title=""):
     except Exception as e:
         return f"推送异常: {e}"
 
-# ---------- 工具3：拆分推送（新增，保险） ----------
+# ---------- 工具3：按行拆分 ----------
 def ntfy_alert_split(messages="", title=""):
-    """
-    按行拆分多条消息，逐条推送
-    messages: 多行文本，每行一条
-    """
     if not messages:
         return "内容不能为空"
-
     lines = [line.strip() for line in messages.split("\n") if line.strip()]
     if not lines:
         return "没有有效内容"
-
-    # 如果只有一条，直接用旧工具
     if len(lines) == 1:
         return ntfy_alert(lines[0], title)
-
-    # 多条：逐条发送，第一条带标题，后续不带
     results = []
     for i, line in enumerate(lines):
         if i == 0:
@@ -91,8 +83,41 @@ def ntfy_alert_split(messages="", title=""):
         else:
             res = ntfy_alert(line, "")
         results.append(res)
-    
     return f"已发送 {len(lines)} 条通知：\n" + "\n".join(results)
+
+# ---------- 工具4：强制拆分（已修复！真正逐条推送） ----------
+def ntfy_alert_force_split(content="", title=""):
+    if not content:
+        return "内容不能为空"
+
+    # 按句子拆分（中文句号、逗号、感叹号、问号、换行）
+    sentences = re.split(r'[，,。！？\n]+', content)
+    sentences = [s.strip() for s in sentences if s.strip()]
+
+    if not sentences:
+        return "没有有效内容"
+
+    # 如果一句话超过20字，强制按字数拆
+    final_messages = []
+    for s in sentences:
+        if len(s) <= 20:
+            final_messages.append(s)
+        else:
+            for i in range(0, len(s), 20):
+                chunk = s[i:i+20]
+                if chunk:
+                    final_messages.append(chunk)
+
+    # 🎯 真正逐条推送！
+    results = []
+    for i, msg in enumerate(final_messages):
+        if i == 0:
+            res = ntfy_alert(msg, title if title else "查岗提醒")
+        else:
+            res = ntfy_alert(msg, "")
+        results.append(res)
+
+    return f"已发送 {len(final_messages)} 条通知：\n" + "\n".join(results)
 
 # ---------- MCP 工具注册 ----------
 TOOLS = [
@@ -115,14 +140,26 @@ TOOLS = [
     },
     {
         "name": "ntfy_alert_split",
-        "description": "按行拆分多条消息，逐条推送，每条一条通知，适合一次性发多条内容",
+        "description": "按换行拆分多条消息，逐条推送，适合一次性发多条内容",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "messages": {"type": "string", "description": "多行文本，每行一条消息"},
-                "title": {"type": "string", "description": "推送标题，可选，仅第一条生效"}
+                "title": {"type": "string", "description": "推送标题，可选"}
             },
             "required": ["messages"]
+        }
+    },
+    {
+        "name": "ntfy_alert_force_split",
+        "description": "强制按句子拆分（句号、逗号、感叹号、问号），每条最多20字，超出自动拆成多条，每条独立推送",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "content": {"type": "string", "description": "推送内容，必填"},
+                "title": {"type": "string", "description": "推送标题，可选"}
+            },
+            "required": ["content"]
         }
     }
 ]
@@ -130,7 +167,8 @@ TOOLS = [
 FUNCS = {
     "check_on_wife": check_on_wife,
     "ntfy_alert": ntfy_alert,
-    "ntfy_alert_split": ntfy_alert_split
+    "ntfy_alert_split": ntfy_alert_split,
+    "ntfy_alert_force_split": ntfy_alert_force_split
 }
 
 # ---------- FastAPI 服务 ----------
