@@ -12,7 +12,7 @@ ORIGIN_API = os.environ.get("ORIGIN_API", "https://wife-check-backend-production
 NTFY_TOPIC = os.environ.get("NTFY_TOPIC", "peiyus_puppy_yikai")
 NTFY_SERVER = os.environ.get("NTFY_SERVER", "https://ntfy.sh")
 
-# ---------- 工具1：查岗（Top 5 版本） ----------
+# ---------- 工具1：查岗（Top 10 版本） ----------
 def check_on_wife(limit=10):
     try:
         r = requests.get(f"{ORIGIN_API}/activity/summary", timeout=10)
@@ -26,7 +26,6 @@ def check_on_wife(limit=10):
     if not apps and not ses:
         return "今天还没有打开过任何 App。"
 
-    # 🔥 重点：直接输出 sessions 里的 Top 5
     sorted_ses = sorted(ses.items(), key=lambda x: x[1], reverse=True)
     
     lines = []
@@ -36,8 +35,8 @@ def check_on_wife(limit=10):
         lines.append("📱 最近打开的应用：暂无")
     
     if sorted_ses:
-        lines.append("\n⏱️ 使用时长排行（Top 5）：")
-        for app, secs in sorted_ses[:5]:
+        lines.append("\n⏱️ 使用时长排行（Top 10）：")
+        for app, secs in sorted_ses[:10]:
             minutes = secs // 60
             seconds = secs % 60
             if minutes > 0:
@@ -127,7 +126,7 @@ def ntfy_alert_force_split(content="", title=""):
 TOOLS = [
     {
         "name": "check_on_wife",
-        "description": "查岗老婆的手机活动，查看最近打开的App和使用时长排行（Top 5）",
+        "description": "查岗老婆的手机活动，查看最近打开的App和使用时长排行（Top 10）",
         "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer"}}}
     },
     {
