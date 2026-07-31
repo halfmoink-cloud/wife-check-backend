@@ -85,19 +85,17 @@ def ntfy_alert_split(messages="", title=""):
         results.append(res)
     return f"已发送 {len(lines)} 条通知：\n" + "\n".join(results)
 
-# ---------- 工具4：强制拆分（已修复！真正逐条推送） ----------
+# ---------- 工具4：强制拆分（真正逐条独立推送） ----------
 def ntfy_alert_force_split(content="", title=""):
     if not content:
         return "内容不能为空"
 
-    # 按句子拆分（中文句号、逗号、感叹号、问号、换行）
     sentences = re.split(r'[，,。！？\n]+', content)
     sentences = [s.strip() for s in sentences if s.strip()]
 
     if not sentences:
         return "没有有效内容"
 
-    # 如果一句话超过20字，强制按字数拆
     final_messages = []
     for s in sentences:
         if len(s) <= 20:
@@ -108,16 +106,16 @@ def ntfy_alert_force_split(content="", title=""):
                 if chunk:
                     final_messages.append(chunk)
 
-    # 🎯 真正逐条推送！
     results = []
+    total = len(final_messages)
+
     for i, msg in enumerate(final_messages):
-        if i == 0:
-            res = ntfy_alert(msg, title if title else "查岗提醒")
-        else:
-            res = ntfy_alert(msg, "")
+        # ✅ 每条标题不同，强制独立弹窗
+        unique_title = f"🦴🐶小宝发来第 {i+1} 条"
+        res = ntfy_alert(msg, unique_title)
         results.append(res)
 
-    return f"已发送 {len(final_messages)} 条通知：\n" + "\n".join(results)
+    return f"已发送 {total} 条独立通知（每条标题不同，独立弹窗）"
 
 # ---------- MCP 工具注册 ----------
 TOOLS = [
@@ -152,12 +150,12 @@ TOOLS = [
     },
     {
         "name": "ntfy_alert_force_split",
-        "description": "强制按句子拆分（句号、逗号、感叹号、问号），每条最多20字，超出自动拆成多条，每条独立推送",
+        "description": "强制按句子拆分（句号、逗号、感叹号、问号），每条最多20字，超出自动拆成多条，每条标题不同，独立弹窗",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "content": {"type": "string", "description": "推送内容，必填"},
-                "title": {"type": "string", "description": "推送标题，可选"}
+                "title": {"type": "string", "description": "推送标题，可选（已弃用，标题固定为🦴🐶小宝发来第X条）"}
             },
             "required": ["content"]
         }
