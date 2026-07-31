@@ -12,7 +12,7 @@ ORIGIN_API = os.environ.get("ORIGIN_API", "https://wife-check-backend-production
 NTFY_TOPIC = os.environ.get("NTFY_TOPIC", "peiyus_puppy_yikai")
 NTFY_SERVER = os.environ.get("NTFY_SERVER", "https://ntfy.sh")
 
-# ---------- 工具1：查岗（已修改为输出 Top 5） ----------
+# ---------- 工具1：查岗（Top 5 版本） ----------
 def check_on_wife(limit=10):
     try:
         r = requests.get(f"{ORIGIN_API}/activity/summary", timeout=10)
@@ -30,7 +30,10 @@ def check_on_wife(limit=10):
     sorted_ses = sorted(ses.items(), key=lambda x: x[1], reverse=True)
     
     lines = []
-    lines.append("📱 最近打开的应用：" + "、".join(apps[:5]) if apps else "暂无")
+    if apps:
+        lines.append("📱 最近打开的应用：" + "、".join(apps[:5]))
+    else:
+        lines.append("📱 最近打开的应用：暂无")
     
     if sorted_ses:
         lines.append("\n⏱️ 使用时长排行（Top 5）：")
